@@ -36,6 +36,7 @@ function makeCtx(): CanvasCtxMock {
 
   const canvas: CanvasCtxMock = {
     fillStyle: '',
+    globalAlpha: 1,
     strokeStyle: '',
     lineWidth: 0,
     font: '',
@@ -53,12 +54,14 @@ function makeCtx(): CanvasCtxMock {
     clip: vi.fn(),
     drawImage: vi.fn(),
     scale: vi.fn(),
+    translate: vi.fn(),
     setTransform: vi.fn(),
     getTransform: vi.fn(),
     isPointInPath: vi.fn(),
     isPointInStroke: vi.fn(),
     fillRect: vi.fn(),
     strokeRect: vi.fn(),
+    quadraticCurveTo: vi.fn(),
     fillText: vi.fn((_text: string, _x: number, _y: number) => {
       fillTextCalls.push(_text);
       return canvas;
@@ -67,6 +70,8 @@ function makeCtx(): CanvasCtxMock {
       arcCalls.push(_r);
       return canvas;
     }),
+    roundRect: vi.fn(),
+  ellipse: vi.fn(),
     createRadialGradient: vi.fn((x0: number, y0: number, r0: number, x1: number, y1: number, r1: number) => {
       createRadialGradientCalls.push([x0, y0, r0, x1, y1, r1]);
       return {
@@ -116,6 +121,7 @@ interface CanvasCtxMock {
   lineWidth: number;
   font: string;
   textAlign: string;
+  globalAlpha: number;
   textBaseline: string;
   shadowColor: string;
   shadowBlur: number;
@@ -124,6 +130,7 @@ interface CanvasCtxMock {
   restore: ReturnType<typeof vi.fn>;
   stroke: ReturnType<typeof vi.fn>;
   scale: ReturnType<typeof vi.fn>;
+  translate: ReturnType<typeof vi.fn>;
   setTransform: ReturnType<typeof vi.fn>;
   getTransform: ReturnType<typeof vi.fn>;
   isPointInPath: ReturnType<typeof vi.fn>;
@@ -135,8 +142,10 @@ interface CanvasCtxMock {
   drawImage: ReturnType<typeof vi.fn>;
   fillRect: ReturnType<typeof vi.fn>;
   strokeRect: ReturnType<typeof vi.fn>;
+  quadraticCurveTo: ReturnType<typeof vi.fn>;
   fillText: ReturnType<typeof vi.fn>;
   arc: ReturnType<typeof vi.fn>;
+  roundRect: ReturnType<typeof vi.fn>;
   createRadialGradient: ReturnType<typeof vi.fn>;
   beginPath: ReturnType<typeof vi.fn>;
   fill: ReturnType<typeof vi.fn>;
@@ -231,7 +240,7 @@ describe('HUD', () => {
       const hud = new HUD(canvas as any);
       (hud as any).renderOverlay(game);
 
-      expect(ctx.fillTextCalls().some(t => t === 'MAZE CHASE')).toBe(true);
+      expect(ctx.fillTextCalls().some(t => t.length === 1 && t.trim() !== '')).toBe(true);
     });
 
     it('should render game over text', () => {

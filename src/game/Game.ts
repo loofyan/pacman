@@ -3,6 +3,7 @@ import { Player } from './player';
 import { Ghost } from './ghost';
 import { SoundEngine } from '../audio/soundEngine';
 import { HUD } from '../ui/hud';
+import { ParticleSystem } from './particles';
 import {
   TILE,
   DIR,
@@ -31,6 +32,7 @@ export class Game {
 
   public soundEngine: SoundEngine;
   public hud: HUD;
+  public particles: ParticleSystem;
 
   // Internal state
   private canvas: HTMLCanvasElement;
@@ -63,6 +65,7 @@ export class Game {
 
     this.soundEngine = new SoundEngine();
     this.hud = new HUD(canvas);
+    this.particles = new ParticleSystem(150);
 
     // Set canvas size
     canvas.width = (this.mazeWidth + 4) * tileSize;
@@ -282,11 +285,33 @@ export class Game {
     // Draw HUD
     this.hud.render(this);
 
+    // Particle system for start screen
+    if (this.mode === 'start') {
+      // Spawn particles periodically
+      this.particles.spawnTimer++;
+      if (this.particles.spawnTimer >= 8) {
+        this.particles.spawn(
+          Math.random() * this.canvas.width,
+          this.canvas.height,
+          3,
+          ['#FFD700', '#FFFF00', '#FFA500', '#FFB8FF', '#00FFFF']
+        );
+        this.particles.spawnTimer = 0;
+      }
+      this.particles.update();
+      this.particles.render(ctx);
+    }
+
     // Draw overlay for start/game over/pause/level done
     if (this.mode === 'start' || this.mode === 'game_over' ||
         this.mode === 'paused' || this.mode === 'level_done') {
       this.hud.renderOverlay(this);
     }
+      // Scanline CRT overlay effect
+    for (let y = 0; y < this.canvas.height; y += 3) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+      ctx.fillRect(0, y, this.canvas.width, 1);
+     }
   }
 
   private drawWalls(): void {
@@ -352,7 +377,23 @@ export class Game {
         ctx.stroke();
       }
     }
-  }
+  
+    /** Animated maze border glow for start screen */
+    if (this.mode === 'start') {
+        const borderFrame = this.currentFrame * 0.03;
+        const glowAlpha = Math.sin(borderFrame) * 0.3 + 0.5;
+        const hue = (Math.sin(borderFrame * 0.5) * 0.5 + 0.5) * 240 + 180;
+        ctx.save();
+        ctx.strokeStyle = `hsla(${hue | 0}, 80%, 60%, ${glowAlpha})`;
+        ctx.lineWidth = 3 + Math.floor(glowAlpha * 3);
+        const margin = this.tileSize;
+        ctx.strokeRect(margin, margin,
+          this.canvas.width - margin * 2,
+          this.canvas.height - margin * 2 - 5 * margin);
+        ctx.restore();
+    }
+
+    }
 
   private drawPellets(): void {
     const ctx = this.ctx;

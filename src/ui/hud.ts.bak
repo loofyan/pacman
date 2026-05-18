@@ -152,15 +152,6 @@ export class HUD {
 
           // Draw ALL elements with explicit Y positions to prevent overlap
 
-
-                // P3: Subtle animated blue glow behind menu elements
-      const glowIntensity = Math.sin(this.currentFrame() * 0.02) * 0.05 + 0.08;
-      const glowRadius = Math.min(w, h) * 0.4;
-      const glowGrad = ctx.createRadialGradient(w / 2, h * 0.35, 0, w / 2, h * 0.35, glowRadius);
-      glowGrad.addColorStop(0, `rgba(33, 33, 222, ${glowIntensity})`);
-      glowGrad.addColorStop(1, 'rgba(33, 33, 222, 0)');
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(0, 0, w, h);
           // 1) Sound indicators — top-left, drawn first (behind everything)
           this.renderSoundIndicators(ctx, w, h, tile, soundEngine);
 
@@ -189,45 +180,44 @@ export class HUD {
           ctx.globalAlpha = 1;
 
           // 3) Subtitle — well below title, h * 0.14
-          ctx.fillStyle = '#CCCCCC';
-          ctx.font = `bold ${tile * 0.65}px monospace`;
+          ctx.fillStyle = '#8888FF';
+          ctx.font = `bold ${tile * 0.6}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('A GHOST CHASE GAME', w / 2, h * 0.14);
 
+          // 4) Ghost row decoration — h * 0.18
+          this.renderGhostRow(ctx, w, h, tile, titleFrame);
 
-            // 4) Player name input — h * 0.30
+          // 5) Player name input — h * 0.22
           this.renderPlayerNameInput(ctx, w, h, tile, titleFrame);
 
-            // 5) Difficulty selector — h * 0.38
+          // 6) Difficulty selector — h * 0.36
           this.renderDifficultySelector(ctx, w, h, tile, titleFrame);
 
-            // 6) "Press Enter to Start" — h * 0.46 (before ghosts, P0: no overlap)
+          // 7) "Press Enter to Start" — h * 0.46
           ctx.fillStyle = '#FFFFFF';
           ctx.font = `bold ${tile * 0.7}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.shadowColor = '#00FFFF';
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 8;
           if (Math.floor(this.currentFrame() / 30) % 2 === 0) {
-            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.46);
-           }
+            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.56););
+          }
           ctx.shadowBlur = 0;
 
-            // 7) Leaderboard — STARTS at h * 0.52
+          // 8) Leaderboard — STARTS at h * 0.54
           if (game.mode === 'start') {
             this.renderLeaderboard(ctx, w, h, tile, titleFrame);
-           }
+          }
 
-            // 8) Ghost row decoration — h * 0.66 (P0: rendered below all text, no overlap)
-          this.renderGhostRow(ctx, w, h, tile, titleFrame);
-
-            // 9) Scrolling high score line — h * 0.78 (P1: removed from game maze area)
+          // 9) Scrolling high score line — h * 0.68
           this.renderScrollingScores(ctx, w, h, tile, titleFrame);
 
-            // 10) Controls hint — at the bottom (P1: brighter text)
+          // 10) Controls hint — at the bottom
           this.renderControlsHint(ctx, w, h, tile);
-        }
+         }
 
      if (game.mode === 'game_over') {
              // Red glow
@@ -275,7 +265,7 @@ export class HUD {
        }
 
         // ---- Player Name Input (Task 12) ----
-        // Positioned at h * 0.30 of screen
+        // Positioned at h * 0.22 of screen
   private renderPlayerNameInput(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     const cursorAlpha = this.showCursor ? 1 : 0;
     const boxWidth = tile * 5;
@@ -299,15 +289,10 @@ export class HUD {
 
           // Player name text
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${tile * 0.65}px monospace`;
+    ctx.font = `bold ${tile * 0.6}px monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    // Show "PLAYER" as greyed-out placeholder when name is empty
-    const isPlaceholder = this.playerName.length === 0;
-    ctx.fillStyle = isPlaceholder ? '#888888' : '#FFFFFF';
-    ctx.font = `bold ${tile * 0.65}px monospace`;
-    const displayName = isPlaceholder ? 'PLAYER' : this.playerName;
-    ctx.fillText(displayName, boxX + tile * 0.3, boxY + boxHeight / 2);
+    ctx.fillText(this.playerName, boxX + tile * 0.3, boxY + boxHeight / 2);
 
           // Blinking cursor
     if (this.showCursor) {
@@ -325,12 +310,12 @@ export class HUD {
        }
 
         // ---- Difficulty Selector (Task 13) ----
-        // Positioned at h * 0.42 of screen
+        // Positioned at h * 0.36 of screen
   private renderDifficultySelector(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     const boxWidth = tile * 5;
     const boxHeight = tile * 1;
     const boxX = w / 2 - boxWidth / 2;
-    const boxY = h * 0.38;
+    const boxY = h * 0.42;
 
           // Label
     ctx.fillStyle = '#88AAFF';
@@ -355,50 +340,23 @@ export class HUD {
     ctx.textBaseline = 'middle';
     ctx.fillText(this.difficulty.toUpperCase(), w / 2, boxY + boxHeight / 2);
 
-
-           // Arrow buttons with clear key hints (P1: visual indicators)
-    const arrowY = boxY + boxHeight + tile * 0.2;
-    const btnSize = tile * 0.7;
-    const arrowSpacing = tile * 1.6;
-
-           // Left arrow button
-    ctx.fillStyle = 'rgba(30, 30, 60, 0.7)';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(w / 2 - arrowSpacing - btnSize / 2, arrowY - btnSize / 2, btnSize, btnSize, 4);
-    ctx.fill();
-    ctx.stroke();
+          // Arrow indicators
+    const arAlpha = Math.max(0.2, Math.min(1, Math.sin(frame * 0.08) * 0.5 + 0.5));
+    ctx.globalAlpha = arAlpha;
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${tile * 0.4}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('‹', w / 2 - arrowSpacing, arrowY);
+    ctx.font = `${tile * 0.35}px monospace`;
+    ctx.fillText('\u003c E/F/H \u003e', w / 2, boxY + boxHeight + tile * 0.2);
+    ctx.globalAlpha = 1;
+       }
 
-           // Right arrow button
-    ctx.beginPath();
-    ctx.roundRect(w / 2 + arrowSpacing - btnSize / 2, arrowY - btnSize / 2, btnSize, btnSize, 4);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('›', w / 2 + arrowSpacing, arrowY);
-
-           // Key hint below arrows
-    ctx.fillStyle = '#888888';
-    ctx.font = `${tile * 0.28}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText('← E/F/H →', w / 2, arrowY + btnSize / 2 + tile * 0.25);
-    ctx.textAlign = 'left'; // Reset align
-    ctx.textAlign = "left"; // Reset align
-        }
         // ---- Leaderboard (Task 17) ----
-        // Leaderboard starts at h * 0.52, entries at h * 0.56 + N * h * 0.04
+        // Leaderboard starts at h * 0.54, entries at h * 0.58 + N * h * 0.04
   private renderLeaderboard(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     ctx.fillStyle = '#FFAA00';
     ctx.font = `bold ${tile * 0.5}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('TOP SCORES', w / 2, h * 0.52);
+    ctx.fillText('TOP SCORES', w / 2, h * 0.54);
 
           // Load and display scores
     try {
@@ -406,7 +364,7 @@ export class HUD {
       const displayCount = Math.min(scores.length, 5);
       for (let i = 0; i < displayCount; i++) {
         const score = scores[i];
-        const y = h * 0.56 + i * tile * 0.4;
+        const y = h * 0.58 + i * tile * 0.4;
 
         // Rank color
         const rankColor = i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#AAAAAA';
@@ -433,16 +391,25 @@ export class HUD {
           // No scores
            }
 
+          // "Press ENTER to begin" hint below all scores
+    ctx.fillStyle = '#FFAA00';
+    ctx.font = `bold ${tile * 0.4}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const hintAlpha = Math.max(0.3, Math.sin(frame * 0.1) * 0.3 + 0.5);
+    ctx.globalAlpha = hintAlpha;
+    ctx.fillText('Press ENTER to begin!', w / 2, h * 0.74);
+    ctx.globalAlpha = 1;
          }
 
         // ---- Ghost row (Task 9+10) ----
-        // Positioned at h * 0.52 of screen
+        // Positioned at h * 0.18 of screen
   private renderGhostRow(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     const ghosts = [
-           { color: '#FF0000' },
-           { color: '#FFB8FF' },
-           { color: '#00FFFF' },
-           { color: '#FFB852' },
+           { color: '#FF0000', name: 'BLINKY' },
+           { color: '#FFB8FF', name: 'PINKY' },
+           { color: '#00FFFF', name: 'INKY' },
+           { color: '#FFB852', name: 'CLYDE' },
            ];
     const spacing = tile * 1.8;
     const startX = w / 2 - tile * 4.0;
@@ -452,16 +419,10 @@ export class HUD {
 
     ghosts.forEach((ghost, i) => {
       const gx = startX + i * spacing;
-      const gy = h * 0.66 + Math.sin(frame * 0.03 + i * 1.5) * 6;
+      const gy = h * 0.52 + Math.sin(frame * 0.03 + i * 1.5) * 6;
       const r = tile * 0.22;
 
              // Ghost body
-      // Semi-transparent dark pill behind ghost for visibility through maze
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-      ctx.beginPath();
-      ctx.arc(gx, gy - 4, r + 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.save();
       ctx.fillStyle = ghost.color;
       ctx.beginPath();
       ctx.arc(gx, gy - 4, r, Math.PI, 0);
@@ -495,11 +456,18 @@ export class HUD {
       ctx.arc(gx + r * 0.22 + r * 0.06, gy - r * 0.1, r * 0.09, 0, Math.PI * 2);
       ctx.fill();
 
+             // Ghost name label
+      const nameAlpha = Math.max(0.3, Math.min(1, 0.5 + Math.sin(frame * 0.06 + i * 2) * 0.5));
+      ctx.fillStyle = ghost.color;
+      ctx.globalAlpha = nameAlpha;
+      ctx.font = `bold ${tile * 0.3}px monospace`;
+      ctx.fillText(ghost.name, gx, gy + tile * 0.22);
+      ctx.globalAlpha = 1;
          });
        }
 
         // ---- Scrolling high score line (Task 11) ----
-        // Positioned at h * 0.78 of screen
+        // Positioned at h * 0.68 of screen
   private renderScrollingScores(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     const scores = ['9500', '8000', '7500', '5000', '3000', '2600', '2000'];
     const scrollOffset = Math.floor(frame * 0.5) % w;
@@ -518,77 +486,67 @@ export class HUD {
              // Ghost icon (small colored dot)
       ctx.fillStyle = ghostColor;
       ctx.beginPath();
-      ctx.arc(baseX + 10, h * 0.78, 3, 0, Math.PI * 2);
+      ctx.arc(baseX + 10, h * 0.68, 3, 0, Math.PI * 2);
       ctx.fill();
 
              // Score text
       ctx.fillStyle = '#FFFFFF';
       ctx.font = `bold ${tile * 0.3}px monospace`;
       ctx.textBaseline = 'middle';
-      ctx.fillText(score, baseX + 16, h * 0.78);
+      ctx.fillText(score, baseX + 16, h * 0.68);
 
       ctx.globalAlpha = 1;
          });
        }
 
-         // ---- Sound Toggle Indicators (P2: speaker icons) ----
-         // Positioned top-left, drawn first (behind title text)
+        // ---- Sound Toggle Indicators (Task 14) ----
+        // Positioned top-left, drawn first (behind title text)
   private renderSoundIndicators(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, soundEngine: any): void {
     if (!soundEngine) return;
     const musicOn = soundEngine.isMusicEnabled();
     const textOn = !soundEngine.isMuted();
 
-          // Top-left corner
+         // Top-left corner
     const indicatorX = tile * 2;
     const indicatorY = tile * 0.3;
-    const iconSize = tile * 0.8;
 
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-
-           // Music icon (🎵) with status color
-    const musicColor = musicOn ? '#00FF00' : '#FF0000';
-    ctx.fillStyle = musicColor;
-    ctx.font = `${iconSize}px sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(musicOn ? '\uD83C\uDFB5' : '\uD83C\uDFB6', indicatorX, indicatorY);
-    ctx.fillStyle = musicColor;
-    ctx.font = `bold ${tile * 0.3}px monospace`;
-    ctx.fillText(musicOn ? 'MUSIC ON' : 'MUTE', indicatorX + iconSize + 4, indicatorY);
-
-           // SFX icon (🔊) below music
-    const sfxColor = textOn ? '#00FF00' : '#FF0000';
-    ctx.fillStyle = sfxColor;
-    ctx.font = `${iconSize}px sans-serif`;
-    ctx.fillText(textOn ? '\uD83D\uDD0A' : '\uD83D\uDD07', indicatorX, indicatorY + iconSize * 0.8);
-    ctx.fillStyle = sfxColor;
-    ctx.font = `bold ${tile * 0.3}px monospace`;
-    ctx.fillText(textOn ? 'SFX ON' : 'SFX OFF', indicatorX + iconSize + 4, indicatorY + iconSize * 0.8);
-
-          // Key hints (brighter, more visible)
-    ctx.fillStyle = '#888888';
-    ctx.font = `${tile * 0.25}px monospace`;
     ctx.textBaseline = 'bottom';
-    ctx.fillText('M: Mute  N: Music', indicatorX, indicatorY + iconSize * 1.7);
 
-          // Right-side helper indicator
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#666666';
+          // Music indicator
+    ctx.fillStyle = musicOn ? '#00FF00' : '#FF0000';
+    ctx.font = `bold ${tile * 0.35}px monospace`;
+    ctx.fillText('\u266A MUSIC', indicatorX, indicatorY + tile * 0.25);
+
+          // SFX indicator (below music)
+    ctx.fillStyle = textOn ? '#00FF00' : '#FF0000';
+    ctx.font = `bold ${tile * 0.35}px monospace`;
+    ctx.fillText('\u266B SFX', indicatorX, indicatorY + tile * 0.6);
+
+         // Key hints in small text
+    ctx.fillStyle = '#555555';
+    ctx.font = `${tile * 0.25}px monospace`;
+    ctx.fillText('Press M: Mute', indicatorX, indicatorY + tile * 1.0);
+    ctx.fillText('Press N: Music', indicatorX, indicatorY + tile * 1.3);
+
+         // Right-side helper indicator
+    const btnX = w - tile * 4;
+    const btnY = tile * 0.3;
+    ctx.fillStyle = '#555555';
     ctx.font = `bold ${tile * 0.3}px monospace`;
-    ctx.fillText('[H = Help]', w - tile * 4, tile * 0.3);
-        }
+    ctx.textAlign = 'right';
+    ctx.fillText('[H = Help]', btnX, btnY);
+       }
 
         // ---- Controls Hint (new) ----
         // Three-line controls at bottom of start screen
   private renderControlsHint(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number): void {
-    ctx.fillStyle = '#888888';
+    ctx.fillStyle = '#555555';
     ctx.font = `${tile * 0.3}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Arrow Keys / WASD to Move', w / 2, h * 0.88);
-    ctx.fillText('Space  Pause  |  R  Restart', w / 2, h * 0.92);
+    ctx.fillText('Arrow Keys / WASD to Move', w / 2, h * 0.78);
+    ctx.fillText('Space  Pause  |  R  Restart', w / 2, h * 0.84);
        }
 
         // ---- How To Play Panel (Task 18) ----
@@ -695,7 +653,7 @@ export class HUD {
           // Show top 5 scores
     if (topScores.length > 0) {
       ctx.fillStyle = '#FFFF00';
-      ctx.font = `bold ${tile * 0.65}px monospace`;
+      ctx.font = `bold ${tile * 0.6}px monospace`;
       ctx.fillText('HIGH SCORES', w / 2, h * 0.58);
 
       for (let i = 0; i < Math.min(topScores.length, 5); i++) {
@@ -734,7 +692,7 @@ export class HUD {
 
   updatePlayerName(key: string): void {
     if (key === 'Backspace') {
-      this.playerName = this.playerName.slice(0, -1);
+      this.playerName = this.playerName.slice(0, -1) || 'PLAYER';
          }
     else if (key.length === 1 && this.playerName.length < 8) {
       this.playerName = this.playerName + key.toUpperCase();
@@ -742,7 +700,7 @@ export class HUD {
        }
 
   getPlayerName(): string {
-    return this.playerName.length === 0 ? 'PLAYER' : this.playerName;
+    return this.playerName || 'PLAYER';
        }
 
   getTopScores(): any[] {
