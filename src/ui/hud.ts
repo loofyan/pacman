@@ -153,7 +153,18 @@ export class HUD {
           // Draw ALL elements with explicit Y positions to prevent overlap
 
 
-                // P3: Subtle animated blue glow behind menu elements
+                 // Task 11: Semi-transparent dark overlay behind menu area only
+      const menuContainerY = h * 0.24 - tile * 0.8;
+      const menuContainerH = (h * 0.32 - h * 0.24) + tile * 3;
+      const menuOverlayGrad = ctx.createLinearGradient(0, menuContainerY - tile * 2, 0, menuContainerY + menuContainerH + tile * 2);
+      menuOverlayGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      menuOverlayGrad.addColorStop(0.3, 'rgba(0, 0, 0, 0.45)');
+      menuOverlayGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.45)');
+      menuOverlayGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = menuOverlayGrad;
+      ctx.fillRect(0, menuContainerY - tile * 2, w, menuContainerH + tile * 4);
+
+                 // P3: Subtle animated blue glow behind menu elements
       const glowIntensity = Math.sin(this.currentFrame() * 0.02) * 0.05 + 0.08;
       const glowRadius = Math.min(w, h) * 0.4;
       const glowGrad = ctx.createRadialGradient(w / 2, h * 0.35, 0, w / 2, h * 0.35, glowRadius);
@@ -164,23 +175,31 @@ export class HUD {
           // 1) Sound indicators — top-left, drawn first (behind everything)
           this.renderSoundIndicators(ctx, w, h, tile, soundEngine);
 
-          // 2) Title centered — h * 0.06
+          // 2) Title centered — h * 0.05 (repositioned up, shorter font to avoid overlap)
           ctx.save();
-          ctx.translate(w / 2, h * 0.06);
+          ctx.translate(w / 2, h * 0.05);
           ctx.scale(bounceScale, bounceScale);
 
                  // Draw letters one by one with fade-in
-          const letterSpacing = tile * 2.8 * 0.55;
+          const letterSpacing = tile * 2.2 * 0.55;
           titleText.split('').forEach((letter, i) => {
             const x = (i - titleText.length / 2) * letterSpacing;
             const letterReveal = Math.max(0, Math.min(1, (titleFrame - i * 3) / 10));
             ctx.globalAlpha = letterReveal;
-            ctx.shadowColor = '#FFA500';
-            ctx.shadowBlur = glowPulse;
+            // Task 14: Layered shadow — dark drop shadow for readability, then orange glow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 3;
             ctx.fillStyle = '#FFFF00';
-            ctx.font = `bold ${tile * 2.8}px monospace`;
+            ctx.font = `bold ${tile * 2.2}px monospace`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+            ctx.fillText(letter, x, 0);
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.shadowColor = '#FFA500';
+            ctx.shadowBlur = glowPulse;
             ctx.fillText(letter, x, 0);
             ctx.shadowBlur = 0;
              });
@@ -188,33 +207,64 @@ export class HUD {
           ctx.restore();
           ctx.globalAlpha = 1;
 
-          // 3) Subtitle — well below title, h * 0.14
+          // 3) Subtitle — well below title, h * 0.12 (Task 14: drop shadow)
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
           ctx.fillStyle = '#CCCCCC';
-          ctx.font = `bold ${tile * 0.65}px monospace`;
+          ctx.font = `bold ${tile * 0.55}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('A GHOST CHASE GAME', w / 2, h * 0.14);
+          ctx.fillText('A GHOST CHASE GAME', w / 2, h * 0.12);
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.restore();
 
 
-            // 4) Player name input — h * 0.30
+            // 4) Menu container background — groups name + difficulty into a card
+          this.renderMenuContainer(ctx, w, h, tile);
+
+            // 5) Player name input — h * 0.24 (moved up for spacing)
           this.renderPlayerNameInput(ctx, w, h, tile, titleFrame);
 
-            // 5) Difficulty selector — h * 0.38
+            // 6) Difficulty selector — h * 0.32 (moved up for spacing)
           this.renderDifficultySelector(ctx, w, h, tile, titleFrame);
 
-            // 6) "Press Enter to Start" — h * 0.46 (before ghosts, P0: no overlap)
+            // 7) "Press Enter to Start" — h * 0.44 (Task 14: drop shadow + Task 13: enhanced blink)
+          const blinkFrame = this.currentFrame();
+          const blinkOn = Math.floor(blinkFrame / 20) % 2 === 0;
+          const promptGlow = Math.sin(blinkFrame * 0.08) * 8 + 16;
+
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
           ctx.fillStyle = '#FFFFFF';
-          ctx.font = `bold ${tile * 0.7}px monospace`;
+          ctx.font = `bold ${tile * 0.6}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.shadowColor = '#00FFFF';
-          ctx.shadowBlur = 12;
-          if (Math.floor(this.currentFrame() / 30) % 2 === 0) {
-            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.46);
-           }
+          ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.44);
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.shadowColor = blinkOn ? '#00FFFF' : '#0088AA';
+          ctx.shadowBlur = blinkOn ? promptGlow : 6;
+          ctx.globalAlpha = blinkOn ? 1 : 0.7;
+          if (blinkOn) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.44);
+          } else {
+            // Cyan-tinted dim phase
+            ctx.fillStyle = '#AADDFF';
+            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.44);
+          }
+          ctx.globalAlpha = 1;
           ctx.shadowBlur = 0;
+          ctx.restore();
 
-            // 7) Leaderboard — STARTS at h * 0.52
+            // 7) Leaderboard with background container — STARTS at h * 0.50 (P0: added bg box)
           if (game.mode === 'start') {
             this.renderLeaderboard(ctx, w, h, tile, titleFrame);
            }
@@ -274,47 +324,117 @@ export class HUD {
          }
        }
 
+        // ---- Menu Container (Task 5) ----
+        // Shared background card that groups name input + difficulty selector
+  private renderMenuContainer(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number): void {
+    const nameBoxY = h * 0.24;
+    const diffBoxY = h * 0.32;
+    const arrowY = diffBoxY + tile * 1 + tile * 0.2;
+    const keyHintY = arrowY + tile * 0.35 + tile * 0.25;
+
+    // Top edge: above "ENTER YOUR NAME" label
+    const containerTop = nameBoxY - tile * 0.8;
+    // Bottom edge: below difficulty key hint
+    const containerBottom = keyHintY + tile * 0.3;
+    // Width: slightly wider than input boxes
+    const containerW = tile * 7;
+    const containerX = w / 2 - containerW / 2;
+    const containerH = containerBottom - containerTop;
+
+    // Rounded background panel
+    ctx.fillStyle = 'rgba(0, 0, 20, 0.75)';
+    ctx.beginPath();
+    ctx.roundRect(containerX, containerTop, containerW, containerH, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(33, 33, 222, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(containerX, containerTop, containerW, containerH, 8);
+    ctx.stroke();
+
+    // Task 12: Player setup header with top accent bar
+    const headerY = containerTop + tile * 0.2;
+    const headerH = tile * 0.45;
+    // Dark header background
+    ctx.fillStyle = 'rgba(20, 20, 50, 0.6)';
+    ctx.beginPath();
+    ctx.roundRect(containerX + 2, headerY, containerW - 4, headerH, [6, 6, 0, 0]);
+    ctx.fill();
+    // Accent line at top of header
+    ctx.strokeStyle = 'rgba(33, 33, 222, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(containerX + 4, headerY + 1);
+    ctx.lineTo(containerX + containerW - 4, headerY + 1);
+    ctx.stroke();
+    // Header text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${tile * 0.3}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PLAYER SETUP', w / 2, headerY + headerH / 2);
+    ctx.textAlign = 'left'; // Reset
+
+    // Section divider line between name and difficulty
+    const dividerY = nameBoxY - tile * 0.15;
+    ctx.strokeStyle = 'rgba(33, 33, 222, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(containerX + tile * 0.5, dividerY);
+    ctx.lineTo(containerX + containerW - tile * 0.5, dividerY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
         // ---- Player Name Input (Task 12) ----
-        // Positioned at h * 0.30 of screen
+        // Positioned at h * 0.24 of screen
   private renderPlayerNameInput(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     const cursorAlpha = this.showCursor ? 1 : 0;
     const boxWidth = tile * 5;
     const boxHeight = tile * 1;
     const boxX = w / 2 - boxWidth / 2;
-    const boxY = h * 0.30;
+    const boxY = h * 0.24;
 
-          // Label
-    ctx.fillStyle = '#FFAA00';
+          // Label — Task 12: standardized color (#CCCCCC)
+    ctx.fillStyle = '#CCCCCC';
     ctx.font = `bold ${tile * 0.45}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('ENTER YOUR NAME', w / 2, boxY - tile * 0.5);
 
-          // Text box
-    ctx.fillStyle = `rgba(100, 100, 255, 0.2)`;
-    ctx.strokeStyle = `rgba(255, 255, 0, 0.7)`;
-    ctx.lineWidth = 1;
+          // Text box — P7: brighter, thicker border for interactivity
+    const glowIntensity = Math.sin(frame * 0.05) * 0.3 + 0.7;
+    ctx.shadowColor = '#FFFF00';
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = `rgba(80, 80, 200, 0.25)`;
+    ctx.strokeStyle = `rgba(255, 255, 0, ${glowIntensity})`;
+    ctx.lineWidth = 2;
     ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
     ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+    ctx.shadowBlur = 0;
 
           // Player name text
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${tile * 0.65}px monospace`;
+    ctx.font = `bold ${tile * 0.6}px monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     // Show "PLAYER" as greyed-out placeholder when name is empty
     const isPlaceholder = this.playerName.length === 0;
     ctx.fillStyle = isPlaceholder ? '#888888' : '#FFFFFF';
-    ctx.font = `bold ${tile * 0.65}px monospace`;
+    ctx.font = `bold ${tile * 0.6}px monospace`;
     const displayName = isPlaceholder ? 'PLAYER' : this.playerName;
     ctx.fillText(displayName, boxX + tile * 0.3, boxY + boxHeight / 2);
 
-          // Blinking cursor
+          // Blinking cursor — P10: proper cursor position based on displayed text, uses cursorAlpha
     if (this.showCursor) {
-      const textWidth = this.playerName.length * tile * 0.35;
+      const textW = isPlaceholder ? 'PLAYER'.length * tile * 0.35 : this.playerName.length * tile * 0.35;
+      const cursorX = boxX + tile * 0.3 + textW;
+      ctx.globalAlpha = 1;
       ctx.fillStyle = '#FFFF00';
-      ctx.fillRect(boxX + tile * 0.3 + textWidth, boxY + boxHeight * 0.2, 2, boxHeight * 0.6);
-         }
+      ctx.fillRect(cursorX, boxY + boxHeight * 0.15, Math.max(2, tile * 0.12), boxHeight * 0.7);
+      ctx.globalAlpha = 1;
+    }
 
          // Compact hint text below
     ctx.fillStyle = '#666666';
@@ -325,28 +445,32 @@ export class HUD {
        }
 
         // ---- Difficulty Selector (Task 13) ----
-        // Positioned at h * 0.42 of screen
+        // Positioned at h * 0.32 of screen
   private renderDifficultySelector(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     const boxWidth = tile * 5;
     const boxHeight = tile * 1;
     const boxX = w / 2 - boxWidth / 2;
-    const boxY = h * 0.38;
+    const boxY = h * 0.32;
 
-          // Label
-    ctx.fillStyle = '#88AAFF';
+          // Label — Task 12: standardized color (#CCCCCC)
+    ctx.fillStyle = '#CCCCCC';
     ctx.font = `bold ${tile * 0.45}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('DIFFICULTY', w / 2, boxY - tile * 0.5);
 
-          // Text box
+          // Text box — P7: thicker border, glow to show interactivity
     const diffColors = { easy: '#00FF00', normal: '#FFFF00', hard: '#FF0000' };
     const color = diffColors[this.difficulty];
-    ctx.fillStyle = `rgba(${color === '#00FF00' ? '0,255,0' : color === '#FFFF00' ? '255,255,0' : '255,0,0'}, 0.15)`;
+    const glowPulse = Math.sin(frame * 0.06) * 0.3 + 0.7;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 5;
+    ctx.fillStyle = `rgba(${color === '#00FF00' ? '0,255,0' : color === '#FFFF00' ? '255,255,0' : '255,0,0'}, 0.2)`;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
     ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+    ctx.shadowBlur = 0;
 
           // Difficulty text
     ctx.fillStyle = color;
@@ -392,13 +516,34 @@ export class HUD {
     ctx.textAlign = "left"; // Reset align
         }
         // ---- Leaderboard (Task 17) ----
-        // Leaderboard starts at h * 0.52, entries at h * 0.56 + N * h * 0.04
+        // Leaderboard starts at h * 0.50 with background container
   private renderLeaderboard(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
+    // Background container for readability over maze
+    const containerY = h * 0.50;
+    const containerH = tile * 3.5;
+    const containerW = tile * 10;
+    const containerX = w / 2 - containerW / 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(containerX, containerY, containerW, containerH);
+    ctx.strokeStyle = 'rgba(33, 33, 222, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(containerX, containerY, containerW, containerH);
+
+    // Title — Task 14: drop shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
     ctx.fillStyle = '#FFAA00';
-    ctx.font = `bold ${tile * 0.5}px monospace`;
+    ctx.font = `bold ${tile * 0.45}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('TOP SCORES', w / 2, h * 0.52);
+    ctx.fillText('TOP SCORES', w / 2, containerY + tile * 0.35);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.restore();
 
           // Load and display scores
     try {
@@ -406,28 +551,35 @@ export class HUD {
       const displayCount = Math.min(scores.length, 5);
       for (let i = 0; i < displayCount; i++) {
         const score = scores[i];
-        const y = h * 0.56 + i * tile * 0.4;
+        const y = containerY + tile * 0.9 + i * tile * 0.5;
 
         // Rank color
         const rankColor = i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#AAAAAA';
 
              // Rank indicator
         ctx.fillStyle = rankColor;
-        ctx.font = `bold ${tile * 0.35}px monospace`;
+        ctx.font = `bold ${tile * 0.3}px monospace`;
         ctx.textAlign = 'right';
-        ctx.fillText(`${i + 1}.`, w / 2 - tile * 2.2, y);
+        ctx.fillText(`${i + 1}.`, w / 2 - tile * 2.0, y);
 
              // Score name
         ctx.fillStyle = score.name === this.playerName ? '#00FF88' : '#FFFFFF';
         ctx.textAlign = 'left';
-        ctx.font = `${tile * 0.35}px monospace`;
-        ctx.fillText(`${score.name}`, w / 2 - tile * 1.8, y);
+        ctx.font = `${tile * 0.3}px monospace`;
+        ctx.fillText(`${score.name}`, w / 2 - tile * 1.6, y);
 
              // Score value
         ctx.fillStyle = '#FFFF00';
-        ctx.font = `bold ${tile * 0.35}px monospace`;
+        ctx.font = `bold ${tile * 0.3}px monospace`;
         ctx.textAlign = 'left';
-        ctx.fillText(`${score.score || 0}`, w / 2 + tile * 0.8, y);
+        ctx.fillText(`${score.score || 0}`, w / 2 + tile * 0.6, y);
+           }
+          // "No scores yet" message
+          if (displayCount === 0) {
+        ctx.fillStyle = '#888888';
+        ctx.font = `${tile * 0.3}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Play to earn a score!', w / 2, containerY + tile * 1.5);
            }
           } catch {
           // No scores
@@ -498,38 +650,57 @@ export class HUD {
          });
        }
 
-        // ---- Scrolling high score line (Task 11) ----
+        // ---- Scrolling high score line (Task 4: consolidated, uses actual scores) ----
         // Positioned at h * 0.78 of screen
   private renderScrollingScores(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
-    const scores = ['9500', '8000', '7500', '5000', '3000', '2600', '2000'];
-    const scrollOffset = Math.floor(frame * 0.5) % w;
+    // Use actual stored scores instead of hardcoded values
+    let displayScores: { name: string; score: number }[] = [];
+    try {
+      const scores: any[] = JSON.parse(localStorage.getItem('mazeChaseScores') || '[]');
+      displayScores = scores.slice(0, 5).map((s: any) => ({ name: s.name || '???', score: s.score || 0 }));
+    } catch {}
 
-    scores.forEach((score, i) => {
-      const baseX = (i * 200) - scrollOffset;
-      const ghostColor = ['#FF0000', '#FFB8FF', '#00FFFF', '#FFB852', '#FF0000', '#FFB8FF', '#00FFFF'][i % 4];
+    // If no stored scores, show a decorative empty state
+    if (displayScores.length === 0) {
+      ctx.fillStyle = '#444466';
+      ctx.font = `bold ${tile * 0.35}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('★ HIGH SCORES ★', w / 2, h * 0.78);
+      return;
+    }
 
-             // Fade at edges
-      const edgeFade = Math.min(1, baseX / 60, (w - baseX) / 60);
-      const fadeInOut = edgeFade * (baseX < 0 ? 1 + edgeFade : 1);
-      const alpha = Math.min(1, Math.max(0.1, fadeInOut));
+    // Scroll actual scores across the screen
+    const scrollSpeed = 0.8;
+    const scrollOffset = Math.floor(frame * scrollSpeed) % (w + 100);
+    const spacing = (w + 60) / displayScores.length;
+
+    displayScores.forEach((scoreEntry, i) => {
+      const baseX = i * spacing - (scrollOffset % spacing);
+      const ghostColor = ['#FF0000', '#FFB8FF', '#00FFFF', '#FFB852', '#FF0000'][i % 4];
+
+      // Fade at edges
+      const edgeFade = Math.min(1, baseX / 50, (w - baseX) / 50);
+      const alpha = Math.min(1, Math.max(0.15, edgeFade));
 
       ctx.globalAlpha = alpha;
 
-             // Ghost icon (small colored dot)
+      // Small colored dot
       ctx.fillStyle = ghostColor;
       ctx.beginPath();
-      ctx.arc(baseX + 10, h * 0.78, 3, 0, Math.PI * 2);
+      ctx.arc(baseX + 8, h * 0.78, 3, 0, Math.PI * 2);
       ctx.fill();
 
-             // Score text
+      // Score with name
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = `bold ${tile * 0.3}px monospace`;
+      ctx.font = `bold ${tile * 0.28}px monospace`;
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(score, baseX + 16, h * 0.78);
+      ctx.fillText(`${scoreEntry.name}  ${scoreEntry.score}`, baseX + 14, h * 0.78);
 
       ctx.globalAlpha = 1;
-         });
-       }
+    });
+  }
 
          // ---- Sound Toggle Indicators (P2: speaker icons) ----
          // Positioned top-left, drawn first (behind title text)
@@ -546,49 +717,107 @@ export class HUD {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
-           // Music icon (🎵) with status color
-    const musicColor = musicOn ? '#00FF00' : '#FF0000';
+           // Music icon — clean canvas-drawn speaker symbol (P8)
+    const musicColor = musicOn ? '#00CC00' : '#CC0000';
+    ctx.save();
+    ctx.strokeStyle = musicColor;
     ctx.fillStyle = musicColor;
-    ctx.font = `${iconSize}px sans-serif`;
+    ctx.lineWidth = Math.max(1, iconSize * 0.15);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    // Speaker body (trapezoid)
+    const sw = iconSize * 0.4;
+    const sh = iconSize * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(indicatorX + sw * 0.5, indicatorY - sh * 0.5);
+    ctx.lineTo(indicatorX - sw * 0.3, indicatorY - sh);
+    ctx.lineTo(indicatorX - sw * 0.3, indicatorY + sh);
+    ctx.lineTo(indicatorX + sw * 0.5, indicatorY + sh * 0.5);
+    ctx.closePath();
+    ctx.stroke();
+    // Sound waves (one or two arcs)
+    if (musicOn) {
+      ctx.beginPath();
+      ctx.arc(indicatorX + sw * 0.6, indicatorY, sw * 0.55, -0.6, 0.6);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(indicatorX + sw * 0.75, indicatorY, sw * 0.75, -0.5, 0.5);
+      ctx.stroke();
+    } else {
+      // Mute slash
+      ctx.beginPath();
+      ctx.moveTo(indicatorX + sw * 0.3, indicatorY - sw * 0.6);
+      ctx.lineTo(indicatorX + sw * 0.9, indicatorY + sw * 0.6);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // Subtle label
+    ctx.fillStyle = musicColor;
+    ctx.font = `bold ${tile * 0.22}px monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(musicOn ? '\uD83C\uDFB5' : '\uD83C\uDFB6', indicatorX, indicatorY);
-    ctx.fillStyle = musicColor;
-    ctx.font = `bold ${tile * 0.3}px monospace`;
-    ctx.fillText(musicOn ? 'MUSIC ON' : 'MUTE', indicatorX + iconSize + 4, indicatorY);
+    ctx.fillText(musicOn ? 'MUSIC' : 'MUTE', indicatorX + iconSize + 3, indicatorY);
 
-           // SFX icon (🔊) below music
-    const sfxColor = textOn ? '#00FF00' : '#FF0000';
+           // SFX icon — clean canvas-drawn sound icon (P8)
+    const sfxColor = textOn ? '#00CC00' : '#CC0000';
+    ctx.save();
+    ctx.strokeStyle = sfxColor;
     ctx.fillStyle = sfxColor;
-    ctx.font = `${iconSize}px sans-serif`;
-    ctx.fillText(textOn ? '\uD83D\uDD0A' : '\uD83D\uDD07', indicatorX, indicatorY + iconSize * 0.8);
+    ctx.lineWidth = Math.max(1, iconSize * 0.15);
+    // Sound bar (vertical rectangle)
+    const barW = iconSize * 0.2;
+    const barH = iconSize * 0.5;
+    const barX = indicatorX;
+    const barY = indicatorY + iconSize * 0.8;
+    ctx.beginPath();
+    ctx.roundRect(barX, barY - barH, barW, barH * 2, 2);
+    ctx.fill();
+    // Sound waves
+    if (textOn) {
+      ctx.beginPath();
+      ctx.arc(barX + barW + 2, barY, iconSize * 0.2, -0.5, 0.5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(barX + barW + 4, barY, iconSize * 0.3, -0.4, 0.4);
+      ctx.stroke();
+    } else {
+      // Mute slash
+      ctx.beginPath();
+      ctx.moveTo(barX - 2, barY - barH * 0.6);
+      ctx.lineTo(barX + barW + 4, barY + barH * 0.6);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // Subtle label
     ctx.fillStyle = sfxColor;
-    ctx.font = `bold ${tile * 0.3}px monospace`;
-    ctx.fillText(textOn ? 'SFX ON' : 'SFX OFF', indicatorX + iconSize + 4, indicatorY + iconSize * 0.8);
+    ctx.font = `bold ${tile * 0.22}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(textOn ? 'SFX' : 'MUTED', indicatorX + iconSize + 3, indicatorY + iconSize * 0.8);
 
-          // Key hints (brighter, more visible)
-    ctx.fillStyle = '#888888';
-    ctx.font = `${tile * 0.25}px monospace`;
-    ctx.textBaseline = 'bottom';
-    ctx.fillText('M: Mute  N: Music', indicatorX, indicatorY + iconSize * 1.7);
+          // Compact key hints
+    ctx.fillStyle = '#555577';
+    ctx.font = `${tile * 0.2}px monospace`;
+    ctx.textBaseline = 'top';
+    ctx.fillText('N:Music  M:Mute', indicatorX, indicatorY + iconSize * 1.6);
 
           // Right-side helper indicator
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#666666';
-    ctx.font = `bold ${tile * 0.3}px monospace`;
-    ctx.fillText('[H = Help]', w - tile * 4, tile * 0.3);
+    ctx.fillStyle = '#555577';
+    ctx.font = `${tile * 0.25}px monospace`;
+    ctx.fillText('H = Help', w - tile * 3, tile * 0.3);
         }
 
-        // ---- Controls Hint (new) ----
-        // Three-line controls at bottom of start screen
+        // ---- Controls Hint (P1: brighter, better contrast) ----
+        // Controls at bottom of start screen
   private renderControlsHint(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number): void {
-    ctx.fillStyle = '#888888';
-    ctx.font = `${tile * 0.3}px monospace`;
+    ctx.fillStyle = '#CCCCCC';
+    ctx.font = `${tile * 0.35}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Arrow Keys / WASD to Move', w / 2, h * 0.88);
-    ctx.fillText('Space  Pause  |  R  Restart', w / 2, h * 0.92);
+    ctx.fillText('Arrow Keys / WASD to Move', w / 2, h * 0.86);
+    ctx.fillText('Space  Pause  |  R  Restart', w / 2, h * 0.90);
        }
 
         // ---- How To Play Panel (Task 18) ----
