@@ -11,9 +11,10 @@ export class HUD {
   private showingHowToPlay: boolean = false;
 
       // Player name input state
-  private playerName: string = 'PLAYER';
+  private playerName: string = '';
   private showCursor: boolean = false;
   private cursorTimer: number = 0;
+  private nameInputFocused: boolean = true;
 
       // Difficulty selector state
   private difficulty: 'easy' | 'normal' | 'hard' = 'normal';
@@ -26,44 +27,53 @@ export class HUD {
   render(game: Game): void {
     const ctx = this.ctx;
     const tile = game.mazeWidth;
+    const canvasW = this.canvas.width;
+    const canvasH = this.canvas.height;
 
-          // Score panel
-    ctx.fillStyle = '#000';
-    ctx.fillRect(tile, -tile - 20, tile * 10, tile);
-    ctx.strokeStyle = '#2121DE';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(tile, -tile - 20, tile * 10, tile);
+    // --- Top HUD bar background (compact single-row) ---
+    const barH = tile;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillRect(0, 0, canvasW, barH);
+    ctx.strokeStyle = 'rgba(33, 33, 222, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, barH);
+    ctx.lineTo(canvasW, barH);
+    ctx.stroke();
 
-          // Score label
-    ctx.fillStyle = '#FFF';
-    ctx.font = `bold ${tile * 0.5}px monospace`;
+    const rowY = tile * 0.5;
+
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText('SCORE', tile + 2, -tile - 18);
+    ctx.textBaseline = 'middle';
 
-          // Score value
+    // --- Left side: Player name + Score ---
+    const leftMargin = tile * 0.3;
+    const nameText = game.hud.getPlayerName();
+
+    // Player name
+    ctx.fillStyle = '#AAAAAA';
+    ctx.font = `bold ${tile * 0.4}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText(nameText, leftMargin, rowY);
+
+    // Score with inline label (all on one line)
+    const scoreX = leftMargin + nameText.length * tile * 0.3 + tile * 0.5;
+    ctx.fillStyle = '#888';
+    ctx.font = `bold ${tile * 0.3}px monospace`;
+    ctx.fillText('SCORE', scoreX, rowY);
     ctx.fillStyle = '#FFFF00';
-    ctx.font = `bold ${tile * 0.8}px monospace`;
-    ctx.fillText(`${game.score}`, tile + 2, -tile - 6);
+    ctx.font = `bold ${tile * 0.45}px monospace`;
+    ctx.fillText(`${game.score}`, scoreX + ctx.measureText('SCORE ').width, rowY);
 
-          // High score
-    ctx.fillStyle = '#000';
-    ctx.fillRect(tile * 14, -tile - 20, tile * 7, tile);
-    ctx.strokeStyle = '#2121DE';
-    ctx.strokeRect(tile * 14, -tile - 20, tile * 7, tile);
-    ctx.fillStyle = '#FFF';
-    ctx.font = `${tile * 0.45}px monospace`;
-    ctx.textAlign = 'left';
-    ctx.fillText('HI', tile * 14 + 2, -tile - 18);
-    ctx.fillStyle = '#FFB8FF';
-    ctx.font = `bold ${tile * 0.7}px monospace`;
-    ctx.fillText(`${game.highScore}`, tile * 14 + 2, -tile - 6);
-
-          // Lives row
-    for (let i = 0; i < game.lives; i++) {
-      const lx = tile * (3 + i);
-      const ly = tile * (game.mazeHeight + 1);
-      const r = tile * 0.3;
+    // --- Lives (centered) ---
+    const livesCount = game.lives;
+    const livesSpacing = tile * 0.65;
+    const livesWidth = livesCount * tile * 0.35 + (livesCount - 1) * tile * 0.15;
+    const livesStartX = canvasW / 2 - livesWidth / 2;
+    for (let i = 0; i < livesCount; i++) {
+      const lx = livesStartX + i * (tile * 0.35 + tile * 0.15);
+      const ly = rowY + tile * 0.1;
+      const r = tile * 0.2;
       const grad = ctx.createRadialGradient(lx - r * 0.2, ly - r * 0.2, 0, lx, ly, r);
       grad.addColorStop(0, '#FFFF66');
       grad.addColorStop(1, '#FFCC00');
@@ -71,20 +81,29 @@ export class HUD {
       ctx.beginPath();
       ctx.arc(lx, ly, r, 0, Math.PI * 2);
       ctx.fill();
-         }
+    }
 
-          // Level panel
-    ctx.fillStyle = '#000';
-    ctx.fillRect(tile * (game.mazeWidth + 1), tile * (game.mazeHeight + 1), tile * 3, tile);
-    ctx.strokeStyle = '#2121DE';
-    ctx.strokeRect(tile * (game.mazeWidth + 1), tile * (game.mazeHeight + 1), tile * 3, tile);
-    ctx.fillStyle = '#FFF';
-    ctx.font = `${tile * 0.4}px monospace`;
-    ctx.textAlign = 'right';
-    ctx.fillText('LVL', tile * (game.mazeWidth + 2) - 2, tile * (game.mazeHeight + 1) + 2);
+    // --- Right side: High score + Level ---
+    const hiScoreCol = canvasW - tile * 4.2;
+    const hiWidth = ctx.measureText('HI ').width + ctx.measureText(`${game.highScore}`).width;
+    const lvlCol = hiScoreCol + hiWidth + tile * 0.4;
+    ctx.textAlign = 'left';
+
+    // HI with inline value
+    ctx.fillStyle = '#888';
+    ctx.font = `bold ${tile * 0.3}px monospace`;
+    ctx.fillText('HI', hiScoreCol, rowY);
+    ctx.fillStyle = '#FFB8FF';
+    ctx.font = `bold ${tile * 0.45}px monospace`;
+    ctx.fillText(`${game.highScore}`, hiScoreCol + ctx.measureText('HI ').width, rowY);
+
+    // LVL with inline value
+    ctx.fillStyle = '#888';
+    ctx.font = `bold ${tile * 0.3}px monospace`;
+    ctx.fillText('LVL', lvlCol, rowY);
     ctx.fillStyle = '#00FF00';
-    ctx.font = `bold ${tile * 0.65}px monospace`;
-    ctx.fillText(`${game.level}`, tile * (game.mazeWidth + 2) - 2, tile * (game.mazeHeight + 1) + 12);
+    ctx.font = `bold ${tile * 0.45}px monospace`;
+    ctx.fillText(`${game.level}`, lvlCol + ctx.measureText('LVL ').width, rowY);
        }
 
   renderOverlay(game: Game): void {
@@ -93,21 +112,18 @@ export class HUD {
     const h = this.canvas.height;
     const tile = game.mazeWidth;
 
-          // Track mode for sound trigger
-    if (this.lastMode !== game.mode) {
-      this.lastMode = game.mode;
-         }
-
           // Update ghost sound timer only on start screen
     if (game.mode === 'start') {
       this.ghostSoundTimer++;
-          // Cursor blink for name input
-      this.cursorTimer++;
-      this.showCursor = Math.floor(this.cursorTimer / 15) % 2 === 0;
+      // Cursor blink for name input — only when focused
+      if (this.nameInputFocused) {
+        this.cursorTimer++;
+        this.showCursor = Math.floor(this.cursorTimer / 15) % 2 === 0;
+      }
          }
 
           // Render full-screen dark overlay for start, game_over, paused, level_done
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, w, h);
 
     ctx.textAlign = 'center';
@@ -122,17 +138,20 @@ export class HUD {
          }
 
     if (game.mode === 'start') {
-             // Sound: play once on entry, then periodically
-      if (this.lastMode !== 'start' && game.mode === 'start') {
-        const soundEngine = (game as any).soundEngine;
+             // Sound: play once on entry (detect transition into start), then periodically
+      const transitioningIntoStart = this.lastMode !== 'start';
+      if (transitioningIntoStart) {
+        const soundEngine = game.soundEngine;
         if (soundEngine) {
           soundEngine.init();
           soundEngine.playSelectSound();
           soundEngine.playBackgroundMusic();
              }
         this.musicStarted = true;
+        // Update lastMode to 'start' so we don't re-trigger
+        this.lastMode = 'start';
              }
-      const soundEngine = (game as any).soundEngine;
+      const soundEngine = game.soundEngine;
       if (soundEngine && this.ghostSoundTimer >= 120 && soundEngine.isMusicEnabled()) {
         soundEngine.playGhostSound();
         this.ghostSoundTimer = 0;
@@ -246,7 +265,7 @@ export class HUD {
           ctx.font = `bold ${tile * 0.6}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.44);
+          ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.48);
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
           ctx.shadowColor = blinkOn ? '#00FFFF' : '#0088AA';
@@ -254,11 +273,11 @@ export class HUD {
           ctx.globalAlpha = blinkOn ? 1 : 0.7;
           if (blinkOn) {
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.44);
+            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.48);
           } else {
             // Cyan-tinted dim phase
             ctx.fillStyle = '#AADDFF';
-            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.44);
+            ctx.fillText('PRESS ENTER TO START', w / 2, h * 0.48);
           }
           ctx.globalAlpha = 1;
           ctx.shadowBlur = 0;
@@ -293,11 +312,29 @@ export class HUD {
       ctx.fillText(`Score: ${game.score}`, w / 2, h * 0.48);
       ctx.fillText(`Level: ${game.level}`, w / 2, h * 0.58);
 
+      if (game.score >= game.highScore && game.highScore > 0) {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = `bold ${tile * 0.65}px monospace`;
+        ctx.fillText('★ NEW HIGH SCORE ★', w / 2, h * 0.65);
+      } else {
+        ctx.fillStyle = '#FFB8FF';
+        ctx.font = `${tile * 0.6}px monospace`;
+        ctx.fillText(`High Score: ${game.highScore}`, w / 2, h * 0.65);
+      }
+
       ctx.fillStyle = '#FFB852';
       ctx.font = `${tile * 0.7}px monospace`;
       if (Math.floor(this.currentFrame() / 30) % 2 === 0) {
-        ctx.fillText('PRESS ENTER TO RETRY', w / 2, h * 0.75);
-          }
+        ctx.fillText('PRESS ENTER TO RETRY', w / 2, h * 0.78);
+      } else {
+        ctx.globalAlpha = 0.5;
+        ctx.fillText('PRESS ENTER TO RETRY', w / 2, h * 0.78);
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.fillStyle = '#888888';
+      ctx.font = `${tile * 0.5}px monospace`;
+      ctx.fillText('ESC  →  Start Screen', w / 2, h * 0.90);
          }
 
      if (game.mode === 'level_done') {
@@ -327,17 +364,14 @@ export class HUD {
         // ---- Menu Container (Task 5) ----
         // Shared background card that groups name input + difficulty selector
   private renderMenuContainer(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number): void {
-    const nameBoxY = h * 0.24;
-    const diffBoxY = h * 0.32;
-    const arrowY = diffBoxY + tile * 1 + tile * 0.2;
-    const keyHintY = arrowY + tile * 0.35 + tile * 0.25;
-
-    // Top edge: above "ENTER YOUR NAME" label
-    const containerTop = nameBoxY - tile * 0.8;
-    // Bottom edge: below difficulty key hint
-    const containerBottom = keyHintY + tile * 0.3;
+    const nameBoxY = h * 0.23;
+    const diffBoxY = h * 0.36;
+    // Top edge: above player setup area
+    const containerTop = nameBoxY - tile * 1.8;
+    // Bottom edge: below difficulty box with padding
+    const containerBottom = diffBoxY + tile * 1.8;
     // Width: slightly wider than input boxes
-    const containerW = tile * 7;
+    const containerW = tile * 10;
     const containerX = w / 2 - containerW / 2;
     const containerH = containerBottom - containerTop;
 
@@ -353,30 +387,30 @@ export class HUD {
     ctx.stroke();
 
     // Task 12: Player setup header with top accent bar
-    const headerY = containerTop + tile * 0.2;
-    const headerH = tile * 0.45;
+    const headerY = containerTop + tile * 0.1;
+    const headerH = tile * 1.0;
     // Dark header background
     ctx.fillStyle = 'rgba(20, 20, 50, 0.6)';
     ctx.beginPath();
     ctx.roundRect(containerX + 2, headerY, containerW - 4, headerH, [6, 6, 0, 0]);
     ctx.fill();
-    // Accent line at top of header
+    // Accent line below header text
     ctx.strokeStyle = 'rgba(33, 33, 222, 0.9)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(containerX + 4, headerY + 1);
-    ctx.lineTo(containerX + containerW - 4, headerY + 1);
+    ctx.moveTo(containerX + 4, headerY + headerH - 2);
+    ctx.lineTo(containerX + containerW - 4, headerY + headerH - 2);
     ctx.stroke();
     // Header text
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${tile * 0.3}px monospace`;
+    ctx.font = `bold ${tile * 0.5}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('PLAYER SETUP', w / 2, headerY + headerH / 2);
     ctx.textAlign = 'left'; // Reset
 
     // Section divider line between name and difficulty
-    const dividerY = nameBoxY - tile * 0.15;
+    const dividerY = nameBoxY + tile * 0.35;
     ctx.strokeStyle = 'rgba(33, 33, 222, 0.3)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 3]);
@@ -391,25 +425,33 @@ export class HUD {
         // Positioned at h * 0.24 of screen
   private renderPlayerNameInput(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
     const cursorAlpha = this.showCursor ? 1 : 0;
-    const boxWidth = tile * 5;
-    const boxHeight = tile * 1;
+    const boxWidth = tile * 8;
+    const boxHeight = tile * 1.3;
     const boxX = w / 2 - boxWidth / 2;
-    const boxY = h * 0.24;
+    const boxY = h * 0.23;
 
-          // Label — Task 12: standardized color (#CCCCCC)
+          // Label — left-aligned field label above the box (avoids overlap with header)
     ctx.fillStyle = '#CCCCCC';
     ctx.font = `bold ${tile * 0.45}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('ENTER YOUR NAME', w / 2, boxY - tile * 0.5);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('ENTER YOUR NAME:', boxX, boxY - tile * 0.05);
 
-          // Text box — P7: brighter, thicker border for interactivity
-    const glowIntensity = Math.sin(frame * 0.05) * 0.3 + 0.7;
-    ctx.shadowColor = '#FFFF00';
-    ctx.shadowBlur = 4;
-    ctx.fillStyle = `rgba(80, 80, 200, 0.25)`;
-    ctx.strokeStyle = `rgba(255, 255, 0, ${glowIntensity})`;
-    ctx.lineWidth = 2;
+          // Text box — bright border when focused, dim when unfocused
+    const hasFocus = this.nameInputFocused;
+    if (hasFocus) {
+      const glowIntensity = Math.sin(frame * 0.05) * 0.3 + 0.7;
+      ctx.shadowColor = '#FFFF00';
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = `rgba(80, 80, 200, 0.25)`;
+      ctx.strokeStyle = `rgba(255, 255, 0, ${glowIntensity})`;
+      ctx.lineWidth = 2;
+    } else {
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(40, 40, 100, 0.15)`;
+      ctx.strokeStyle = 'rgba(100, 100, 100, 0.4)';
+      ctx.lineWidth = 1;
+    }
     ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
     ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
     ctx.shadowBlur = 0;
@@ -424,10 +466,10 @@ export class HUD {
     ctx.fillStyle = isPlaceholder ? '#888888' : '#FFFFFF';
     ctx.font = `bold ${tile * 0.6}px monospace`;
     const displayName = isPlaceholder ? 'PLAYER' : this.playerName;
-    ctx.fillText(displayName, boxX + tile * 0.3, boxY + boxHeight / 2);
+    ctx.fillText(displayName, boxX + tile * 0.35, boxY + boxHeight / 2);
 
-          // Blinking cursor — P10: proper cursor position based on displayed text, uses cursorAlpha
-    if (this.showCursor) {
+          // Blinking cursor — only visible when focused
+    if (hasFocus && this.showCursor) {
       const textW = isPlaceholder ? 'PLAYER'.length * tile * 0.35 : this.playerName.length * tile * 0.35;
       const cursorX = boxX + tile * 0.3 + textW;
       ctx.globalAlpha = 1;
@@ -436,28 +478,22 @@ export class HUD {
       ctx.globalAlpha = 1;
     }
 
-         // Compact hint text below
-    ctx.fillStyle = '#666666';
-    ctx.font = `${tile * 0.3}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('Backspace to edit', w / 2, boxY + boxHeight + tile * 0.2);
        }
 
         // ---- Difficulty Selector (Task 13) ----
         // Positioned at h * 0.32 of screen
   private renderDifficultySelector(ctx: CanvasRenderingContext2D, w: number, h: number, tile: number, frame: number): void {
-    const boxWidth = tile * 5;
-    const boxHeight = tile * 1;
+    const boxWidth = tile * 8;
+    const boxHeight = tile * 1.3;
     const boxX = w / 2 - boxWidth / 2;
-    const boxY = h * 0.32;
+    const boxY = h * 0.36;
 
-          // Label — Task 12: standardized color (#CCCCCC)
+          // Label — left-aligned field label above the box (same margin as name label)
     ctx.fillStyle = '#CCCCCC';
     ctx.font = `bold ${tile * 0.45}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('DIFFICULTY', w / 2, boxY - tile * 0.5);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('DIFFICULTY:', boxX, boxY - tile * 0.05);
 
           // Text box — P7: thicker border, glow to show interactivity
     const diffColors = { easy: '#00FF00', normal: '#FFFF00', hard: '#FF0000' };
@@ -478,42 +514,7 @@ export class HUD {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(this.difficulty.toUpperCase(), w / 2, boxY + boxHeight / 2);
-
-
-           // Arrow buttons with clear key hints (P1: visual indicators)
-    const arrowY = boxY + boxHeight + tile * 0.2;
-    const btnSize = tile * 0.7;
-    const arrowSpacing = tile * 1.6;
-
-           // Left arrow button
-    ctx.fillStyle = 'rgba(30, 30, 60, 0.7)';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(w / 2 - arrowSpacing - btnSize / 2, arrowY - btnSize / 2, btnSize, btnSize, 4);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${tile * 0.4}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('‹', w / 2 - arrowSpacing, arrowY);
-
-           // Right arrow button
-    ctx.beginPath();
-    ctx.roundRect(w / 2 + arrowSpacing - btnSize / 2, arrowY - btnSize / 2, btnSize, btnSize, 4);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('›', w / 2 + arrowSpacing, arrowY);
-
-           // Key hint below arrows
-    ctx.fillStyle = '#888888';
-    ctx.font = `${tile * 0.28}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.fillText('← E/F/H →', w / 2, arrowY + btnSize / 2 + tile * 0.25);
     ctx.textAlign = 'left'; // Reset align
-    ctx.textAlign = "left"; // Reset align
         }
         // ---- Leaderboard (Task 17) ----
         // Leaderboard starts at h * 0.50 with background container
@@ -597,7 +598,7 @@ export class HUD {
            { color: '#FFB852' },
            ];
     const spacing = tile * 1.8;
-    const startX = w / 2 - tile * 4.0;
+    const startX = w / 2 - tile * 2.7;
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -804,8 +805,8 @@ export class HUD {
           // Right-side helper indicator
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#555577';
-    ctx.font = `${tile * 0.25}px monospace`;
+    ctx.fillStyle = '#AAAAAA';
+    ctx.font = `bold ${tile * 0.45}px monospace`;
     ctx.fillText('H = Help', w - tile * 3, tile * 0.3);
         }
 
@@ -870,11 +871,13 @@ export class HUD {
            { title: '', color: '#FFFFFF' },
            { title: 'CONTROLS', color: '#8888FF' },
            { title: 'Arrow Keys / WASD    - Move Pac-Man', color: '#FFFFFF' },
+           { title: 'E / F                 - Change difficulty', color: '#FFFFFF' },
+           { title: 'N                     - Toggle music', color: '#FFFFFF' },
            { title: 'Space                 - Pause', color: '#FFFFFF' },
            { title: 'R                     - Restart', color: '#FFFFFF' },
            { title: 'M                     - Mute sound', color: '#FFFFFF' },
            { title: 'H                     - This panel', color: '#FFFFFF' },
-           { title: 'Space                 - Enter/Select', color: '#FFFFFF' },
+           { title: 'Enter                 - Start / Select', color: '#FFFFFF' },
            ];
 
     sections.forEach((section) => {
@@ -951,13 +954,17 @@ export class HUD {
     this.showingHowToPlay = !this.showingHowToPlay;
        }
 
+  closeHowToPlay(): void {
+    this.showingHowToPlay = false;
+       }
+
   cycleDifficulty(): void {
     if (this.difficulty === 'easy') this.difficulty = 'normal';
     else if (this.difficulty === 'normal') this.difficulty = 'hard';
     else this.difficulty = 'easy';
        }
 
-  getDifficulty(): string {
+  getDifficulty(): 'easy' | 'normal' | 'hard' {
     return this.difficulty;
        }
 
@@ -972,6 +979,14 @@ export class HUD {
 
   getPlayerName(): string {
     return this.playerName.length === 0 ? 'PLAYER' : this.playerName;
+       }
+
+  setNameInputFocused(focused: boolean): void {
+    this.nameInputFocused = focused;
+       }
+
+  getNameInputFocused(): boolean {
+    return this.nameInputFocused;
        }
 
   getTopScores(): any[] {

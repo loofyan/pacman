@@ -29,6 +29,9 @@ export class SoundEngine {
     this.muted = !this.muted;
     if (this.muted) {
       this.stopBackgroundMusic();
+    } else if (this.musicEnabled && this.enabled && this.ctx) {
+      // Restart music when unmuting
+      this.playBackgroundMusic();
     }
     return this.muted;
   }
@@ -53,6 +56,9 @@ export class SoundEngine {
 
   private play(freq: number, duration: number, type: OscillatorType = 'square', volume: number = 0.15): void {
     if (!this.enabled || this.muted || !this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = type;
@@ -88,6 +94,9 @@ export class SoundEngine {
 
   death(): void {
     if (!this.enabled || this.muted || !this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sawtooth';
@@ -114,41 +123,31 @@ export class SoundEngine {
 
   // ========== Background Music ==========
 
-  // Short chiptune jingle notes (frequencies) — looping pattern
+  // Chill ambient melody — pentatonic scale, slow and relaxing
+  // Using C major pentatonic: C4(262), D4(294), E4(330), G4(392), A4(440), C5(523), D5(587), E5(659), G5(784)
+  // Pattern: gentle arpeggios with lots of space between notes
   private static readonly MUSIC_PATTERN: number[] = [
-    // Bar 1: Ascending arpeggio
-    523, 659, 784, 1047,
-    // Bar 2: Descending
-    880, 784, 659, 523,
-    // Bar 3: Melody
-    587, 659, 784, 659,
-    // Bar 4: Resolution
-    523, 440, 523, 659,
-    // Bar 5: Second phrase
-    784, 880, 784, 659,
-    // Bar 6: Running down
-    523, 587, 659, 523,
-    // Bar 7: Approach
-    440, 523, 659, 784,
-    // Bar 8: Land
-    523, 0, 523, 659,
+    // Phrase 1: warm descending
+    523, 440, 392, 330, 0, 330, 294, 262,
+    // Phrase 2: gentle rise
+    0, 294, 330, 392, 440, 0, 392, 330,
+    // Phrase 3: settled motion
+    262, 294, 330, 392, 0, 440, 392, 0,
+    // Phrase 4: soft resolution
+    330, 294, 262, 0, 330, 392, 440, 0,
   ];
 
-  // Rhythmic pattern — which notes get longer durations for groove
+  // Slow rhythm — long relaxed durations with silence gaps
   private static readonly MUSIC_RHYTHM: number[] = [
-    1, 0.75, 1, 0.75,
-    0.75, 1, 0.75, 1,
-    1, 0.5, 1, 0.5,
-    0.5, 1, 0.5, 1,
-    1, 0.75, 1, 0.75,
-    0.75, 1, 0.75, 1,
-    1, 0.5, 1, 0.5,
-    0.5, 1, 0.5, 1,
+    1.5, 1.0, 1.5, 1.0, 0.5, 1.0, 1.5, 1.0,
+    0.5, 1.0, 1.0, 1.5, 1.0, 0.5, 1.5, 1.0,
+    1.5, 1.0, 1.0, 1.5, 0.5, 1.0, 1.5, 0.5,
+    1.0, 1.0, 1.5, 0.5, 1.0, 1.0, 1.5, 1.0,
   ];
 
    /**
-   * Play a looping chiptune jingle using oscillators.
-   * Uses different wave types per note and a repeating pattern.
+   * Play a looping chill ambient melody.
+   * Uses warm sine/triangle waves at low volume for a relaxing vibe.
    */
   playBackgroundMusic(): void {
     if (this.musicPlaying || !this.enabled || this.muted || !this.musicEnabled) return;
@@ -156,7 +155,10 @@ export class SoundEngine {
       this.init();
     }
     if (!this.ctx) return;
-
+    // Ensure context is running (resume is async, so check state)
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
     this.musicPlaying = true;
     this.currentContext = this.ctx;
     let noteIndex = 0;
@@ -175,30 +177,29 @@ export class SoundEngine {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
-        // Use triangle for warm lead, square for bass undertone
-        const isBass = beatIndex % 4 === 0;
-        osc.type = isBass ? 'triangle' : 'square';
+        // Alternate between sine (warm pad) and triangle (soft lead)
+        osc.type = beatIndex % 2 === 0 ? 'sine' : 'triangle';
         osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
 
-        // ADSR envelope
-        const duration = rhythmValue * 0.22;
+        // Smooth, relaxed envelope
+        const duration = rhythmValue * 0.4;
         gain.gain.setValueAtTime(0, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(isBass ? 0.08 : 0.05, this.ctx.currentTime + 0.01);
-        gain.gain.linearRampToValueAtTime(isBass ? 0.06 : 0.035, this.ctx.currentTime + duration * 0.5);
+        gain.gain.linearRampToValueAtTime(0.04, this.ctx.currentTime + 0.05);
+        gain.gain.linearRampToValueAtTime(0.03, this.ctx.currentTime + duration * 0.6);
         gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + duration);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
 
         osc.start(this.ctx.currentTime);
-        osc.stop(this.ctx.currentTime + duration + 0.01);
+        osc.stop(this.ctx.currentTime + duration + 0.02);
       }
 
       noteIndex++;
       beatIndex++;
 
-      // Schedule next note
-      const nextNoteDelay = rhythmValue * 200;
+      // Schedule next note at relaxed pace
+      const nextNoteDelay = rhythmValue * 350;
       this.musicTimeout = window.setTimeout(playNextNote, nextNoteDelay);
     };
 
@@ -223,6 +224,9 @@ export class SoundEngine {
    */
   playSelectSound(): void {
     if (!this.enabled || this.muted || !this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'square';
@@ -241,6 +245,9 @@ export class SoundEngine {
    */
   playGhostSound(): void {
     if (!this.enabled || this.muted || !this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sawtooth';

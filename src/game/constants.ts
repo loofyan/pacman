@@ -52,6 +52,13 @@ export const FPS = 60;
 export const PLAYER_SPEED_BASE = 0.08;
 export const GHOST_SPEED_BASE = 0.07;
 export const FRIGHTENED_DURATION = 480; // frames (~8 seconds at 60fps)
+
+// Difficulty speed multipliers
+export const DIFFICULTY_SPEEDS = {
+  easy: { player: 1.2, ghost: 0.8 },
+  normal: { player: 1.0, ghost: 1.0 },
+  hard: { player: 0.9, ghost: 1.3 },
+} as const;
 export const DEFEAT_RETURN_FRAMES = 60;
 export const DEFEAT_COOLDOWN = 300; // frames before defeated ghost can release
 export const GHOST_RELEASE_INTERVAL = 180;

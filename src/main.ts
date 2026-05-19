@@ -22,6 +22,21 @@ const keyMap: Record<string, { x: number; y: number } | null> = {
 };
 
 let startScreenLoop: number | null = null;
+let nameInputFocused: boolean = true; // default: focus on name box
+
+function isInsideNameBox(clientX: number, clientY: number): boolean {
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const w = canvas.width;
+  const h = canvas.height;
+  const tile = 24;
+  const boxWidth = tile * 5;
+  const boxHeight = tile;
+  const boxX = w / 2 - boxWidth / 2;
+  const boxY = h * 0.24;
+  return x >= boxX && x <= boxX + boxWidth && y >= boxY && y <= boxY + boxHeight;
+}
 
 function startScreenLoop_(): void {
   if (game.mode === 'start' || game.mode === 'game_over') {
@@ -29,6 +44,12 @@ function startScreenLoop_(): void {
     startScreenLoop = requestAnimationFrame(startScreenLoop_);
   }
 }
+
+// Click to set focus on the name input box
+canvas.addEventListener('click', (e: MouseEvent) => {
+  nameInputFocused = isInsideNameBox(e.clientX, e.clientY);
+  game.hud.setNameInputFocused(nameInputFocused);
+});
 
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   // Prevent scrolling for game keys
@@ -46,37 +67,49 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     return;
   }
 
-  // ---- START SCREEN: Name input takes priority over all action keys ----
-  // On the start screen, only Enter starts the game.
-  // All letter keys type into the player name textbox.
+  // ---- START SCREEN ----
   if (game.mode === 'start') {
-    // Player name input (letters and backspace)
-    if (e.key === 'Backspace') {
-      hud.updatePlayerName('Backspace');
-    } else if (e.key.length === 1 && /[a-z]/i.test(e.key)) {
-      hud.updatePlayerName(e.key);
-    }
-
-    // Only when name has NOT been edited, E/F changes difficulty
-    if (hud.getPlayerName() === 'PLAYER') {
-      if (e.key === 'e' || e.key === 'E') {
-        hud.cycleDifficulty();
-      }
-    }
-
-    // Only Enter starts the game on start screen
+    // Enter always starts the game on the start screen
     if (e.key === 'Enter') {
-      game.start();
+      game.start(hud.getDifficulty());
       hud.toggleHowToPlay();
+      return;
     }
-    return; // Consumed — no other actions work on start screen
+
+    if (nameInputFocused) {
+      // Focus is on the name box: letters type, Backspace deletes
+      if (e.key === 'Backspace') {
+        hud.updatePlayerName('Backspace');
+        return;
+      }
+      if (e.key.length === 1 && /[a-z]/i.test(e.key)) {
+        hud.updatePlayerName(e.key);
+        return;
+      }
+      // Any other key is ignored when focus is on name box
+      return;
+    }
+
+    // Focus is NOT on the name box: let keys fall through to gameplay actions
+    // (r=restart, m=mute, n=toggle music, h=help, etc.)
   }
 
   // ---- GAMEPLAY ACTIONS (R, M, N, H, Enter, Space) ----
 
-  // Enter: Retry / Restart after game over
-  if (e.key === 'Enter') {
-    hud.toggleHowToPlay();
+  // Enter: Retry after game over (starts new game)
+  if (e.key === 'Enter' && game.mode === 'game_over') {
+    const difficulty = hud.getDifficulty();
+    game.fullRestart(difficulty);
+    game.start(difficulty);
+    return;
+  }
+
+  // ESC: Go back to start screen from game_over or death
+  if ((e.key === 'Escape' || e.code === 'Escape') &&
+      (game.mode === 'game_over' || game.mode === 'death')) {
+    game.stop();
+    game.goToStart();
+    game.render();
     return;
   }
 
@@ -90,8 +123,9 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   // R: Restart
   if (e.key === 'r' || e.key === 'R') {
     game.stop();
-    game.fullRestart();
-    game.start();
+    const difficulty = hud.getDifficulty();
+    game.fullRestart(difficulty);
+    game.start(difficulty);
     return;
   }
 
@@ -104,6 +138,12 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   // N: Toggle music
   if (e.key === 'n' || e.key === 'N') {
     soundEngine.toggleMusic();
+    return;
+  }
+
+  // E/F: Cycle difficulty (only on start screen)
+  if ((e.key === 'e' || e.key === 'E') && game.mode === 'start') {
+    hud.cycleDifficulty();
     return;
   }
 

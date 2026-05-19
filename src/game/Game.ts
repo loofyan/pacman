@@ -4,6 +4,7 @@ import { Ghost } from './ghost';
 import { SoundEngine } from '../audio/soundEngine';
 import { HUD } from '../ui/hud';
 import { ParticleSystem } from './particles';
+import { Scores } from '../utils/scores';
 import {
   TILE,
   DIR,
@@ -12,6 +13,9 @@ import {
   CHASE_SCATTER_DURATION,
   DEATH_ANIM_FRAMES,
   DEFEAT_COOLDOWN,
+  DIFFICULTY_SPEEDS,
+  GHOST_SPEED_BASE,
+  PLAYER_SPEED_BASE,
 } from './constants';
 import type { GameMode } from './constants';
 import type { Direction } from './constants';
@@ -38,6 +42,8 @@ export class Game {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private tileSize: number;
+  private offsetX: number = 0;
+  private offsetY: number = 0;
   private currentFrame: number = 0;
   private frightenedTimer: number = 0;
   private chaseScatterTimer: number = 0;
@@ -67,41 +73,55 @@ export class Game {
     this.hud = new HUD(canvas);
     this.particles = new ParticleSystem(150);
 
-    // Set canvas size
-    canvas.width = (this.mazeWidth + 4) * tileSize;
-    canvas.height = (this.mazeHeight + 4) * tileSize;
+    // Set canvas size with equal padding around maze content
+    const mazeContentW = this.mazeWidth * tileSize;
+    const mazeContentH = this.mazeHeight * tileSize;
+    const padding = tileSize * 2; // 2 tiles on each side
+    canvas.width = mazeContentW + padding * 2;
+    canvas.height = mazeContentH + padding * 2;
     canvas.style.width = `${canvas.width}px`;
     canvas.style.height = `${canvas.height}px`;
+    // Center the maze content within the canvas
+    this.offsetX = padding;
+    this.offsetY = padding;
   }
 
-  start(): void {
+  start(difficulty: 'easy' | 'normal' | 'hard' = 'normal'): void {
     this.mode = 'playing';
     this.score = 0;
     this.lives = 3;
     this.level = 1;
-    this.resetLevel();
+    // Load the persisted high score from localStorage
+    const topScores = Scores.getTopScores();
+    if (topScores.length > 0) {
+      this.highScore = topScores[0].score;
+    }
+    this.resetLevel(difficulty);
     this.soundEngine.init();
     this.lastTime = performance.now();
     this.accumulator = 0;
     this.gameLoop();
   }
 
-  resetLevel(): void {
+  resetLevel(difficulty: 'easy' | 'normal' | 'hard' = 'normal'): void {
     this.maze.resetPellets();
     this.player.reset(14, 20);
     this.ghosts.forEach(g => g.reset());
+    const diff = DIFFICULTY_SPEEDS[difficulty];
+    this.player.speed = PLAYER_SPEED_BASE * diff.player;
+    this.ghosts.forEach(g => { g.speed = GHOST_SPEED_BASE * diff.ghost; });
     this.frightenedTimer = 0;
     this.chaseScatterTimer = 0;
     this.currentChaseScatter = 'chase';
     this.deathAnimFrame = 0;
   }
 
-  fullRestart(): void {
+  fullRestart(difficulty: 'easy' | 'normal' | 'hard' = 'normal'): void {
     this.score = 0;
     this.lives = 3;
     this.level = 1;
     this.mode = 'playing';
-    this.resetLevel();
+    this.resetLevel(difficulty);
   }
 
   // Called each frame
@@ -166,7 +186,12 @@ export class Game {
       this.lives--;
       if (this.lives <= 0) {
         this.mode = 'game_over';
-        if (this.score > this.highScore) this.highScore = this.score;
+        if (this.score > this.highScore) {
+          this.highScore = this.score;
+          // Persist the new high score to localStorage
+          const playerName = this.hud.getPlayerName();
+          Scores.addScore(playerName, this.highScore);
+        }
       } else {
         this.player.reset(14, 20);
         this.ghosts.forEach(g => {
@@ -323,9 +348,8 @@ export class Game {
         const tileType = this.maze.getTile(c, r);
         if (tileType !== TILE.WALL && tileType !== TILE.GHOST_WALL) continue;
 
-        const py = (r + 1) * tile;
-        const x = c * tile;
-        const y = py;
+        const x = this.offsetX + c * tile;
+        const y = this.offsetY + r * tile;
 
         // Check neighbors for rounded corners
         const top = r > 0 && (this.maze.getTile(c, r - 1) === TILE.WALL || this.maze.getTile(c, r - 1) === TILE.GHOST_WALL);
@@ -366,14 +390,14 @@ export class Game {
     for (let r = 0; r < this.mazeHeight; r++) {
       for (let c = 0; c < this.mazeWidth; c++) {
         if (this.maze.getTile(c, r) !== TILE.GHOST_DOOR) continue;
-        const py = (r + 1) * tile;
-        const x = c * tile + tile / 2;
+        const x = this.offsetX + c * tile + tile / 2;
+        const y = this.offsetY + r * tile + tile / 2;
         const pulse = Math.sin(this.currentFrame * 0.15) * 0.3 + 0.7;
         ctx.strokeStyle = `rgba(255, 184, 255, ${pulse})`;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(c * tile + 3, py + tile / 2);
-        ctx.lineTo(c * tile + tile - 3, py + tile / 2);
+        ctx.moveTo(this.offsetX + c * tile + 3, this.offsetY + r * tile + tile / 2);
+        ctx.lineTo(this.offsetX + c * tile + tile - 3, this.offsetY + r * tile + tile / 2);
         ctx.stroke();
       }
     }
@@ -386,10 +410,9 @@ export class Game {
         ctx.save();
         ctx.strokeStyle = `hsla(${hue | 0}, 80%, 60%, ${glowAlpha})`;
         ctx.lineWidth = 3 + Math.floor(glowAlpha * 3);
-        const margin = this.tileSize;
-        ctx.strokeRect(margin, margin,
-          this.canvas.width - margin * 2,
-          this.canvas.height - margin * 2 - 5 * margin);
+        ctx.strokeRect(this.offsetX, this.offsetY,
+          this.canvas.width - this.offsetX * 2,
+          this.canvas.height - this.offsetY * 2 - 5 * this.tileSize);
         ctx.restore();
     }
 
@@ -402,8 +425,8 @@ export class Game {
     for (let r = 0; r < this.mazeHeight; r++) {
       for (let c = 0; c < this.mazeWidth; c++) {
         const tileType = this.maze.getTile(c, r);
-        const x = c * tile + tile / 2;
-        const y = (r + 1) * tile + tile / 2;
+        const x = this.offsetX + c * tile + tile / 2;
+        const y = this.offsetY + r * tile + tile / 2;
 
         if (tileType === TILE.PELLET) {
           const size = tile * 0.1;
@@ -435,8 +458,8 @@ export class Game {
   private drawPlayer(): void {
     const ctx = this.ctx;
     const tile = this.tileSize;
-    const x = this.player.col * tile + tile / 2;
-    const y = (this.player.row + 1) * tile + tile / 2;
+    const x = this.offsetX + this.player.col * tile + tile / 2;
+    const y = this.offsetY + this.player.row * tile + tile / 2;
     const r = tile * 0.42;
 
     // Mouth animation
@@ -502,8 +525,8 @@ export class Game {
     this.ghosts.forEach(ghost => {
       if (ghost.inHouse && ghost.releaseTimer > 60) return;
 
-      const x = ghost.col * tile + tile / 2;
-      const y = (ghost.row + 1) * tile + tile / 2;
+      const x = this.offsetX + ghost.col * tile + tile / 2;
+      const y = this.offsetY + ghost.row * tile + tile / 2;
       const r = tile * 0.45;
 
       if (ghost.defeated) {
@@ -613,6 +636,22 @@ export class Game {
 
   mute(): boolean {
     return this.soundEngine.toggleMute();
+  }
+
+  goToStart(): void {
+    this.stop();
+    this.mode = 'start';
+    this.score = 0;
+    this.lives = 3;
+    this.level = 1;
+    this.currentFrame = 0;
+    this.deathAnimFrame = 0;
+    this.hud.closeHowToPlay();
+    // Load high score from localStorage so it displays on start screen
+    const topScores = Scores.getTopScores();
+    if (topScores.length > 0) {
+      this.highScore = topScores[0].score;
+    }
   }
 
   // Game loop
