@@ -31,10 +31,10 @@ function isInsideNameBox(clientX: number, clientY: number): boolean {
   const w = canvas.width;
   const h = canvas.height;
   const tile = 24;
-  const boxWidth = tile * 5;
-  const boxHeight = tile;
+  const boxWidth = tile * 8;
+  const boxHeight = tile * 1.3;
   const boxX = w / 2 - boxWidth / 2;
-  const boxY = h * 0.24;
+  const boxY = h * 0.23;
   return x >= boxX && x <= boxX + boxWidth && y >= boxY && y <= boxY + boxHeight;
 }
 
